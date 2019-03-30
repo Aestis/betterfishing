@@ -1,0 +1,9 @@
+name: BetterFishing
+main: de.aestis.betterfishing.Main
+description: Inspired by MoreFish
+version: 1.0
+author: Gurke
+api-version: 1.13
+commands:
+   bf:
+      description: Main Command for this Plugin
