@@ -1,8 +1,8 @@
 name: BetterFishing
 main: de.aestis.betterfishing.Main
 description: Inspired by MoreFish
-version: 1.0
-author: Gurke
+version: 0.9.1
+author: Guerkchen385
 api-version: 1.13
 commands:
    bf:

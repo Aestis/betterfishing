@@ -28,6 +28,10 @@ public class EventListener implements Listener {
 
 	@EventHandler
 	public void onFishing(PlayerFishEvent event) {
+		//Easy Disabling
+		if (passFishingEvent(event.getPlayer()) == false) return;
+		
+		//Init Fishes
 		if (fishes[0] == null) {
 			int i = 0;
 			for(String key : Config.getConfigurationSection("bf.loot").getKeys(false)){
@@ -36,14 +40,14 @@ public class EventListener implements Listener {
 			}
 		}
 		
+		//After Caught Fish
 		if (event.getState() == State.CAUGHT_FISH) {
 			Boolean debug = Config.getBoolean("debug");
-			
 			Player player = event.getPlayer();
 			Location loc = player.getLocation();
 			Biome bio = event.getPlayer().getWorld().getBiome(loc.getBlockX(), loc.getBlockZ());
 			int rndFish = ThreadLocalRandom.current().nextInt(0, fishes.length - 1);
-			int rndRarity = ThreadLocalRandom.current().nextInt(1, 5);
+			int rndRarity = ThreadLocalRandom.current().nextInt(1, 3);
 			int enchRarity = 0;
 			double rndHandicap = ThreadLocalRandom.current().nextDouble(0.1, 3.0);
 			double enchHandicap = 0;
@@ -63,7 +67,7 @@ public class EventListener implements Listener {
 			
 			//Get Fish
 			boolean found = false;
-			for (int t = 0; t < 50; t++) {
+			for (int t = 0; t < 10; t++) {
 				boolean rok = false;
 				if (Config.getInt("bf.loot." + fishes[rndFish] + ".rarity") <= (rndRarity + enchRarity)) rok = true;
 				boolean bok = false;
@@ -86,25 +90,32 @@ public class EventListener implements Listener {
 
 				if (rok && bok) {
 					found = true;
-					t = 50;
+					t = 10;
 				} else {
 					if (rndFish == fishes.length - 1) {
 						rndFish = 0;
 					} else {
 						rndFish++;
 					}
-					//rndFish = ThreadLocalRandom.current().nextInt(0, fishes.length - 1);
 				}
 			}
 			
 			if (found == false) return;
 			if (found) {
 				String fishString = "bf.loot." + fishes[rndFish];
-				//check if min == max
-				double rndFishLength = ((ThreadLocalRandom.current().nextInt(Config.getInt(fishString + ".min-length"), Config.getInt(fishString + ".max-length")) - rndHandicap) + enchHandicap + enchLength);
+				
+				//Check Special Min/Max Items
+				double minLength = Config.getDouble(fishString + ".min-length");
+				double maxLength = Config.getDouble(fishString + ".max-length");
+				double rndFishLength;
+				if (minLength == maxLength) {
+					rndFishLength = minLength;
+				} else {
+					rndFishLength = ((ThreadLocalRandom.current().nextDouble(minLength, maxLength) - rndHandicap) + enchHandicap + enchLength);
+				}
 				double fishLength = Double.parseDouble(String.format(Locale.ENGLISH, "%1.2f", rndFishLength));
 				
-				//debug
+				//Debugging
 				if (debug) Bukkit.broadcastMessage("Player: " + player.getName() + ", Max-Rarity: " + rndRarity + "(+" + enchRarity + "), Handicap: " + rndHandicap + "(-" + enchHandicap + "), Fish-Caught: " + fishes[rndFish] + ", Fish-Length: " + fishLength);
 	
 				//Fetch Info
@@ -167,8 +178,14 @@ public class EventListener implements Listener {
 				} else if (Config.getDouble("bf.ranks.2.length") < fishLength) {
 					Config.set("bf.ranks.2.player", player.getName());
 					Config.set("bf.ranks.2.length", fishLength);
+					
 					Main.instance.saveConfig();
 				}
+				
+				//Push To Event
+				new GameEvents();
+				GameEvents ge = GameEvents.getInstance();
+				ge.pushCatch(player.getName(), fishLength);
 				
 				//Replace Fish
 				caught.setItemStack(itmStk);
@@ -176,13 +193,26 @@ public class EventListener implements Listener {
 				//Broadcast Message
 				if (Config.getBoolean("bf.broadcast.enabled")) {
 					for (Player pl : Bukkit.getOnlinePlayers()) {
-						if (pl.getLocation().distance(loc) < 100) {
+						if (pl.getLocation().distance(loc) < Config.getInt("bf.broadcast.range")) {
 							pl.sendMessage(ChatColor.GOLD + event.getPlayer().getName() + ChatColor.WHITE + " hat " + ChatColor.BOLD + displayName + ChatColor.WHITE + " (" + fishLength + "cm) gefangen!");
 						}
 					}
 				}
 			}
 		}
+	}
+	
+	public boolean passFishingEvent(Player player) {
+		ItemStack itm = player.getInventory().getItemInMainHand();
+		ItemMeta itmMeta = itm.getItemMeta();
+		if (Config.getBoolean("bf.item.use-item-flag")) {
+			if (itmMeta.hasLore() == false) {
+				return false;
+			} else if (itmMeta.getLore().contains("BetterFishing") == false) {
+				return false;
+			}
+		}
+		return true;
 	}
 	
 	public ItemStack getItem(String customName, String info, String length, String catched, Material material){
